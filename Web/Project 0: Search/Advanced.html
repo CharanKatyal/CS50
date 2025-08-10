@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="https://www.google.com/favicon.ico">
+    <title>Google Advanced Search</title>
+</head>
+
+<body>
+    <div class="row">
+        <div class="logo">
+            <img src="https://www.google.com/intl/en_ALL/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"
+                alt="Google" height="30px">
+        </div>
+        <div class="options">
+            <ul>
+                <li><a href="index.html">Search</a></li>
+                <li><a href="Images.html">Images</a></li>
+            </ul>
+        </div>
+    </div>
+    <br><br><br>
+    <div id="header">
+        <label id="heading">Advanced Search</label>
+    </div>
+    <hr>
+    <form action="https://www.google.com/search" method="get">
+        <div id="advanced_options">
+            <div id="info">
+                <div style="float: left;">
+                    <span id="info_header">Find Pages with..</span>
+                </div>
+                <div style="min-width: 50%; float: left;">
+                    .
+                </div>
+                <div style="float: left; font-size: 13px; font-weight: bold; color: #777777;">
+                    <span>To do this in the search box</span>
+                </div>
+            </div>
+            <br>
+            <div id="all">
+                <label>all these words:</label>
+                <input type="text" name="as_q">
+                <span id="sideinfo">Type the important words:</span>
+                <span id="monospace">tri-colour rat terrier</span>
+            </div>
+
+            <div id="exact">
+                <label>exact word or phrase:</label>
+                <input type="text" name="as_epq">
+                <span id="sideinfo">Put exact words in quotes:</span>
+                <span id="monospace">"rat terrier"</span>
+            </div>
+
+            <div id="any">
+                <label>any of these words:</label>
+                <input type="text" name="as_oq">
+                <span id="sideinfo">Type</span>
+                <span id="monospace">OR</span>
+                <span id="sideinfo">between all the words you want:</span>
+                <span id="monospace">miniature OR standard</span>
+            </div>
+
+            <div id="none">
+                <label>none of these words:</label>
+                <input type="text" name="as_eq">
+                <div style="float: left;">
+                    <span id="sideinfo">Put a minus sign just before words that you don't want:</span>
+                    <br>
+                    <span id="monospace">-rodent, -"Jack Russell"</span>
+                </div>
+            </div>
+        </div>
+        <hr>
+        <input id="as_search" type="submit" value="Advanced Search" class="search_btns">
+    </form>
+</body>
+
+</html>
