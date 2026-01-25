@@ -7,6 +7,11 @@ FILEPATH = "habits.csv"
 
 def main():
     """Main function to run the habit tracker CLI."""
+    # Handle standard help flags
+    if len(sys.argv) > 1 and (sys.argv[1] == '-h' or sys.argv[1] == '--help'):
+        print_help()
+        sys.exit(0)
+
     load_habits(FILEPATH)
     if len(sys.argv) > 1:
         habits = load_habits(FILEPATH)
@@ -41,28 +46,28 @@ def run_interactive_mode():
 def process_command(args, habits):
     """Processes a single command and returns the updated habits list."""
     command = args[0].lower()
+    # Allow 'help' command to be processed like -h/--help
+    if command == 'help':
+        print_help()
+        return habits
+
     identifier = args[1] if len(args) > 1 else None
 
-    # Commands that don't require an identifier
-    if command in ["list", "stats", "reminders", "help"]:
+    if command in ["list", "stats", "reminders"]:
         if command == "list":
             list_habits(habits)
         elif command == "stats":
             show_analytics(habits)
         elif command == "reminders":
             show_reminders(habits)
-        elif command == "help":
-            print_help()
         return habits
 
-    # 'add' only works with a name
     if command == "add":
         if not identifier:
             print("The 'add' command requires a habit name.")
             return habits
         return add_habit(habits, identifier)
 
-    # Commands that require an identifier (name or ID)
     if not identifier:
         print(f"Command '{command}' requires a habit name or ID.")
         return habits
@@ -99,6 +104,7 @@ def find_habit_by_identifier(identifier, habits):
 
 def print_help():
     """Prints the help message with available commands."""
+    print("Usage: python project.py [command] [argument]")
     print("\nCommands:")
     print("  list                 - Show all habits with their IDs.")
     print("  stats                - Display habit analytics.")
@@ -107,8 +113,9 @@ def print_help():
     print("  complete <id|name>   - Mark a habit as done for today.")
     print("  delete <id|name>     - Remove a habit.")
     print("  reset <id|name>      - Reset a habit's streak to 0.")
-    print("  help                 - Display this help message.")
-    print("  exit                 - Save and exit the tracker.\n")
+    print("  help, -h, --help     - Display this help message.")
+    print("  (no arguments)       - Run in interactive mode.")
+    print("\nIn interactive mode, type 'exit' to save and quit.")
 
 def list_habits(habits):
     """Prints a formatted list of all habits with their 1-based ID."""
@@ -129,7 +136,6 @@ def show_reminders(habits):
         print("Great job! All habits completed for today.")
     else:
         for i, habit in enumerate(pending_habits):
-            # Find original index for ID
             original_index = habits.index(habit)
             print(f"[{original_index + 1}] {habit['habit_name']}")
     print("--------------------------------\n")
@@ -150,15 +156,13 @@ def show_analytics(habits):
         print("No habits to analyze.")
         return
     total_habits = len(habits)
-    longest_current_streak_habit = max(habits, key=lambda x: x["streak"])
-    best_longest_streak_habit = max(habits, key=lambda x: x["longest_streak"])
+    longest_current_streak_habit = max(habits, key=lambda x: x.get("streak", 0))
+    best_longest_streak_habit = max(habits, key=lambda x: x.get("longest_streak", 0))
     print("\n--- Habit Analytics ---")
     print(f"Total habits tracked: {total_habits}")
     print(f"Longest current streak: '{longest_current_streak_habit['habit_name']}' ({longest_current_streak_habit['streak']} days)")
     print(f"Best all-time streak: '{best_longest_streak_habit['habit_name']}' ({best_longest_streak_habit['longest_streak']} days)")
     print("-----------------------\n")
-
-# --- Data Persistence Functions ---
 
 def load_habits(filepath):
     """Loads habits from the CSV file."""
@@ -182,8 +186,6 @@ def save_habits(filepath, habits):
         writer = csv.DictWriter(file, fieldnames=["habit_name", "streak", "longest_streak", "last_completed_date"])
         writer.writeheader()
         writer.writerows(habits)
-
-# --- Core Habit Functions ---
 
 def add_habit(habits, name):
     """Adds a new habit, avoiding duplicates."""
@@ -217,8 +219,8 @@ def complete_habit(habits, name):
                 habit["streak"] += 1
             else:
                 habit["streak"] = 1
-            if habit["streak"] > habit["longest_streak"]:
-                habit["longest_streak"] = habit["streak"]
+            if habit["streak"] > habit['longest_streak']:
+                habit['longest_streak'] = habit['longest_streak']
             habit["last_completed_date"] = today_str
             print(f"Good work! Streak for '{name}' is now {habit['streak']}.")
             return habits
