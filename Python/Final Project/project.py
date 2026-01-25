@@ -7,7 +7,6 @@ FILEPATH = "habits.csv"
 
 def main():
     """Main function to run the habit tracker CLI."""
-    # Handle standard help flags
     if len(sys.argv) > 1 and (sys.argv[1] == '-h' or sys.argv[1] == '--help'):
         print_help()
         sys.exit(0)
@@ -46,48 +45,50 @@ def run_interactive_mode():
 def process_command(args, habits):
     """Processes a single command and returns the updated habits list."""
     command = args[0].lower()
-    # Allow 'help' command to be processed like -h/--help
-    if command == 'help':
-        print_help()
-        return habits
-
     identifier = args[1] if len(args) > 1 else None
 
-    if command in ["list", "stats", "reminders"]:
-        if command == "list":
-            list_habits(habits)
-        elif command == "stats":
-            show_analytics(habits)
-        elif command == "reminders":
-            show_reminders(habits)
+    # Define valid commands
+    commands_with_no_args = {"list", "stats", "reminders", "help"}
+    commands_with_name_arg = {"add"}
+    commands_with_id_or_name_arg = {"complete", "delete", "reset"}
+
+    # Validate the command first
+    if command not in commands_with_no_args | commands_with_name_arg | commands_with_id_or_name_arg:
+        print(f"Invalid command: '{command}'. Type 'help' for available commands.")
         return habits
 
-    if command == "add":
+    # Process commands
+    if command == 'help':
+        print_help()
+    elif command == 'list':
+        list_habits(habits)
+    elif command == 'stats':
+        show_analytics(habits)
+    elif command == 'reminders':
+        show_reminders(habits)
+    elif command == 'add':
         if not identifier:
             print("The 'add' command requires a habit name.")
+        else:
+            return add_habit(habits, identifier)
+    elif command in commands_with_id_or_name_arg:
+        if not identifier:
+            print(f"Command '{command}' requires a habit name or ID.")
             return habits
-        return add_habit(habits, identifier)
+        
+        target_habit = find_habit_by_identifier(identifier, habits)
+        if not target_habit:
+            print(f"Habit '{identifier}' not found.")
+            return habits
 
-    if not identifier:
-        print(f"Command '{command}' requires a habit name or ID.")
-        return habits
+        habit_name = target_habit["habit_name"]
+        if command == "complete":
+            return complete_habit(habits, habit_name)
+        elif command == "delete":
+            return delete_habit(habits, habit_name)
+        elif command == "reset":
+            return reset_habit(habits, habit_name)
 
-    target_habit = find_habit_by_identifier(identifier, habits)
-    if not target_habit:
-        print(f"Habit '{identifier}' not found.")
-        return habits
-
-    habit_name = target_habit["habit_name"]
-
-    if command == "complete":
-        return complete_habit(habits, habit_name)
-    elif command == "delete":
-        return delete_habit(habits, habit_name)
-    elif command == "reset":
-        return reset_habit(habits, habit_name)
-    else:
-        print(f"Invalid command: '{command}'. Type 'help' for available commands.")
-    
     return habits
 
 def find_habit_by_identifier(identifier, habits):
@@ -156,12 +157,14 @@ def show_analytics(habits):
         print("No habits to analyze.")
         return
     total_habits = len(habits)
-    longest_current_streak_habit = max(habits, key=lambda x: x.get("streak", 0))
-    best_longest_streak_habit = max(habits, key=lambda x: x.get("longest_streak", 0))
+    longest_current_streak_habit = max(habits, key=lambda x: x.get("streak", 0), default=None)
+    best_longest_streak_habit = max(habits, key=lambda x: x.get("longest_streak", 0), default=None)
     print("\n--- Habit Analytics ---")
     print(f"Total habits tracked: {total_habits}")
-    print(f"Longest current streak: '{longest_current_streak_habit['habit_name']}' ({longest_current_streak_habit['streak']} days)")
-    print(f"Best all-time streak: '{best_longest_streak_habit['habit_name']}' ({best_longest_streak_habit['longest_streak']} days)")
+    if longest_current_streak_habit:
+        print(f"Longest current streak: '{longest_current_streak_habit['habit_name']}' ({longest_current_streak_habit['streak']} days)")
+    if best_longest_streak_habit:
+        print(f"Best all-time streak: '{best_longest_streak_habit['habit_name']}' ({best_longest_streak_habit['longest_streak']} days)")
     print("-----------------------\n")
 
 def load_habits(filepath):
@@ -220,7 +223,7 @@ def complete_habit(habits, name):
             else:
                 habit["streak"] = 1
             if habit["streak"] > habit['longest_streak']:
-                habit['longest_streak'] = habit['longest_streak']
+                habit['longest_streak'] = habit['streak']
             habit["last_completed_date"] = today_str
             print(f"Good work! Streak for '{name}' is now {habit['streak']}.")
             return habits
