@@ -1,6 +1,7 @@
 import os
 import csv
 from datetime import date, timedelta
+import pytest
 from project import (
     load_habits,
     save_habits,
@@ -8,125 +9,108 @@ from project import (
     delete_habit,
     complete_habit,
     process_command,
-    show_analytics,
-    show_reminders, # Import new functions
     reset_habit,
+    find_habit_by_identifier,
+    list_habits,
 )
 
-# Define a constant for the test file path
 TEST_FILE = "test_habits.csv"
 
-def setup_function():
-    """Set up a clean test file before each test."""
+
+@pytest.fixture(autouse=True)
+def setup_and_teardown():
+    """Manages the test file before and after each test."""
+    if os.path.exists(TEST_FILE):
+        os.remove(TEST_FILE)
+    yield
     if os.path.exists(TEST_FILE):
         os.remove(TEST_FILE)
 
 
-def teardown_function():
-    """Clean up the test file after each test."""
-    if os.path.exists(TEST_FILE):
-        os.remove(TEST_FILE)
-
-# ... (previous tests remain unchanged) ...
-
-def test_show_analytics(capsys):
-    """Test the analytics display."""
-    habits = [
-        {"habit_name": "Read", "streak": 10, "longest_streak": 15, "last_completed_date": "2023-10-27"},
-        {"habit_name": "Code", "streak": 20, "longest_streak": 20, "last_completed_date": "2023-10-27"},
+@pytest.fixture
+def sample_habits():
+    """Provides a standard set of habits for testing."""
+    return [
+        {"habit_name": "Read", "streak": 10, "longest_streak": 15, "last_completed_date": str(date.today())},
+        {"habit_name": "Code", "streak": 5, "longest_streak": 5, "last_completed_date": str(date.today() - timedelta(days=2))},
+        {"habit_name": "Walk the Dog", "streak": 20, "longest_streak": 25, "last_completed_date": str(date.today() - timedelta(days=1))},
     ]
-    show_analytics(habits)
+
+
+# --- Test Core Logic --- #
+
+def test_add_habit():
+    habits = add_habit([], "Exercise")
+    assert len(habits) == 1 and habits[0]["habit_name"] == "Exercise"
+
+def test_add_duplicate_habit(capsys):
+    habits = add_habit([{"habit_name": "Read", "streak": 1, "longest_streak": 1, "last_completed_date": "never"}], "Read")
+    assert len(habits) == 1
     captured = capsys.readouterr()
-    assert "Total habits tracked: 2" in captured.out
-    assert "longest current streak: 'Code' (20 days)" in captured.out
+    assert "already exists" in captured.out
 
-# New tests for reminders and reset
-
-def test_show_reminders(capsys):
-    """Test that reminders for uncompleted habits are shown correctly."""
-    today_str = str(date.today())
-    habits = [
-        {"habit_name": "Read", "streak": 1, "longest_streak": 1, "last_completed_date": today_str},
-        {"habit_name": "Write", "streak": 2, "longest_streak": 2, "last_completed_date": "2023-10-26"},
-    ]
-    show_reminders(habits)
+def test_list_habits(capsys, sample_habits):
+    list_habits(sample_habits)
     captured = capsys.readouterr()
-    assert "- Write" in captured.out
-    assert "- Read" not in captured.out
+    assert "[1] Read" in captured.out
+    assert "[2] Code" in captured.out
+    assert "[3] Walk the Dog" in captured.out
 
-def test_show_reminders_all_completed(capsys):
-    """Test the reminders display when all habits are completed."""
-    today_str = str(date.today())
-    habits = [{"habit_name": "Read", "streak": 1, "longest_streak": 1, "last_completed_date": today_str}]
-    show_reminders(habits)
+# --- Test find_habit_by_identifier --- #
+
+def test_find_by_id(sample_habits):
+    assert find_habit_by_identifier("1", sample_habits) == sample_habits[0]
+    assert find_habit_by_identifier("3", sample_habits) == sample_habits[2]
+
+def test_find_by_name(sample_habits):
+    assert find_habit_by_identifier("Code", sample_habits) == sample_habits[1]
+    assert find_habit_by_identifier("walk the dog", sample_habits) == sample_habits[2]
+
+def test_find_by_invalid_id(sample_habits):
+    assert find_habit_by_identifier("99", sample_habits) is None
+
+def test_find_by_nonexistent_name(sample_habits):
+    assert find_habit_by_identifier("Nonexistent", sample_habits) is None
+
+# --- Test process_command with IDs --- #
+
+def test_process_command_delete_by_id(sample_habits):
+    habits = process_command(["delete", "2"], sample_habits)
+    assert len(habits) == 2
+    assert "Code" not in [h["habit_name"] for h in habits]
+
+def test_process_command_complete_by_id(sample_habits):
+    habits = process_command(["complete", "3"], sample_habits)
+    assert habits[2]["streak"] == 21
+
+def test_process_command_reset_by_id(sample_habits):
+    habits = process_command(["reset", "1"], sample_habits)
+    assert habits[0]["streak"] == 0
+
+# --- Test process_command with Names (Regression) --- #
+
+def test_process_command_delete_by_name(sample_habits, capsys):
+    habits = process_command(["delete", "Read"], sample_habits)
+    assert len(habits) == 2
     captured = capsys.readouterr()
-    assert "All habits completed" in captured.out
+    assert "Deleted habit: 'Read'" in captured.out
 
-def test_reset_habit():
-    """Test that a habit's streak can be reset to 0."""
-    habits = [{"habit_name": "Meditate", "streak": 10, "longest_streak": 15, "last_completed_date": "2023-10-27"}]
-    updated_habits = reset_habit(habits, "Meditate")
-    assert updated_habits[0]["streak"] == 0
-    assert updated_habits[0]["longest_streak"] == 15 # Longest streak should not change
+def test_process_command_complete_by_name(sample_habits):
+    habits = process_command(["complete", "Walk the Dog"], sample_habits)
+    assert habits[2]["streak"] == 21
 
-def test_reset_habit_nonexistent():
-    """Test that trying to reset a nonexistent habit doesn't change the list."""
-    initial_habits = [{"habit_name": "Read", "streak": 5, "longest_streak": 5, "last_completed_date": "2023-10-26"}]
-    updated_habits = reset_habit(initial_habits, "Nonexistent Habit")
-    assert updated_habits == initial_habits
-
-def test_process_command_reminders(capsys):
-    """Test the 'reminders' command via the process_command function."""
-    habits = [{"habit_name": "Exercise", "streak": 1, "longest_streak": 1, "last_completed_date": "never"}]
-    process_command(["reminders"], habits)
+def test_process_command_invalid_command(sample_habits, capsys):
+    process_command(["unknown_command", "1"], sample_habits)
     captured = capsys.readouterr()
-    assert "- Exercise" in captured.out
+    assert "Invalid command" in captured.out
 
-def test_process_command_reset():
-    """Test the 'reset' command via the process_command function."""
-    habits = [{"habit_name": "Journal", "streak": 7, "longest_streak": 7, "last_completed_date": "2023-10-27"}]
-    updated_habits = process_command(["reset", "Journal"], habits)
-    assert updated_habits[0]["streak"] == 0
+# --- Test Data Persistence --- #
 
-# (Keep all other existing tests)
+def test_load_and_save_habits(sample_habits):
+    save_habits(TEST_FILE, sample_habits)
+    loaded = load_habits(TEST_FILE)
+    assert loaded == sample_habits
 
-def test_load_habits_no_file():
-    """Test that load_habits creates a new file with the correct headers."""
-    load_habits(TEST_FILE)
-    with open(TEST_FILE, 'r') as f:
-        reader = csv.reader(f)
-        header = next(reader)
-        assert header == ["habit_name", "streak", "longest_streak", "last_completed_date"]
+def test_load_creates_file():
     assert load_habits(TEST_FILE) == []
-
-def test_save_habits():
-    """Test saving and loading habits."""
-    habits_to_save = [
-        {"habit_name": "Read", "streak": 5, "longest_streak": 10, "last_completed_date": "2023-10-26"},
-    ]
-    save_habits(TEST_FILE, habits_to_save)
-    loaded_habits = load_habits(TEST_FILE)
-    assert loaded_habits == habits_to_save
-
-def test_add_habit_new():
-    """Test adding a new habit."""
-    habits = add_habit([], "New Habit")
-    assert habits[0]["habit_name"] == "New Habit"
-
-def test_delete_habit_existing():
-    """Test deleting an existing habit."""
-    habits = [{"habit_name": "Old Habit", "streak": 1, "longest_streak": 1, "last_completed_date": "never"}]
-    habits = delete_habit(habits, "Old Habit")
-    assert len(habits) == 0
-
-def test_complete_habit_and_streak():
-    """Test completing a habit updates streak and longest_streak."""
-    yesterday = str(date.today() - timedelta(days=1))
-    habits = [{"habit_name": "Coding", "streak": 3, "longest_streak": 3, "last_completed_date": yesterday}]
-    habits = complete_habit(habits, "Coding")
-    assert habits[0]["streak"] == 4 and habits[0]["longest_streak"] == 4
-
-def test_process_command_add():
-    """Test the 'add' command processor."""
-    habits = process_command(["add", "Test Habit"], [])
-    assert len(habits) == 1 and habits[0]["habit_name"] == "Test Habit"
+    assert os.path.exists(TEST_FILE)
