@@ -8,37 +8,77 @@ FILEPATH = "habits.csv"
 def main():
     """
     Main function to run the habit tracker CLI.
-    Parses commands: list, add, complete, delete.
+    Runs in argument-based mode or interactive mode.
     """
-    # Ensure the habits file exists before any operation
-    load_habits(FILEPATH)
+    load_habits(FILEPATH)  # Ensure file exists before any operations
 
-    args = sys.argv[1:]
-    command = args[0] if args else "list" # Default to 'list' if no command is given
+    if len(sys.argv) > 1:
+        # If arguments are passed, run in single-command mode
+        habits = load_habits(FILEPATH)
+        updated_habits = process_command(sys.argv[1:], habits)
+        save_habits(FILEPATH, updated_habits)
+    else:
+        # Otherwise, run in interactive mode
+        run_interactive_mode()
 
+def run_interactive_mode():
+    """Runs the habit tracker in a continuous interactive loop."""
+    print("\n--- Welcome to Your Interactive Habit Tracker ---")
+    print_help()
     habits = load_habits(FILEPATH)
 
-    if command == "add" and len(args) > 1:
-        habit_name = args[1]
+    while True:
+        try:
+            user_input = input("> ").strip()
+            if not user_input:
+                continue
+
+            args = user_input.split(maxsplit=1)
+            command = args[0].lower()
+
+            if command == "exit":
+                print("Saving habits... Goodbye!")
+                break
+            
+            if command == "help":
+                print_help()
+                continue
+
+            habits = process_command(args, habits)
+            save_habits(FILEPATH, habits) # Save after each action
+
+        except (KeyboardInterrupt, EOFError):
+            print("\nExiting. Saving habits... Goodbye!")
+            save_habits(FILEPATH, habits)
+            break
+
+def process_command(args, habits):
+    """Processes a single command and returns the updated habits list."""
+    command = args[0].lower()
+    habit_name = args[1] if len(args) > 1 else None
+
+    if command == "add" and habit_name:
         habits = add_habit(habits, habit_name)
-        print(f"Added habit: '{habit_name}'")
-
-    elif command == "complete" and len(args) > 1:
-        habit_name = args[1]
+    elif command == "complete" and habit_name:
         habits = complete_habit(habits, habit_name)
-    
-    elif command == "delete" and len(args) > 1:
-        habit_name = args[1]
+    elif command == "delete" and habit_name:
         habits = delete_habit(habits, habit_name)
-
     elif command == "list":
         list_habits(habits)
-
     else:
-        sys.exit("Usage: python project.py [add|complete|delete|list] [habit_name]")
+        print(f"Invalid command: '{command}'. Type 'help' for available commands.")
+    
+    return habits
 
-    save_habits(FILEPATH, habits)
-
+def print_help():
+    """Prints the help message with available commands."""
+    print("\nCommands:")
+    print("  list               - Show all habits and their streaks.")
+    print("  add <habit name>   - Create a new habit.")
+    print("  complete <habit name>- Mark a habit as done for today.")
+    print("  delete <habit name>  - Remove a habit.")
+    print("  help               - Display this help message.")
+    print("  exit               - Save and exit the tracker.\n")
 
 def load_habits(filepath):
     """
@@ -53,14 +93,12 @@ def load_habits(filepath):
 
     with open(filepath, "r") as file:
         reader = csv.DictReader(file)
-        # Convert numeric strings to integers
         habits_list = []
         for row in reader:
-            row['streak'] = int(row['streak']) if 'streak' in row else 0
-            row['longest_streak'] = int(row['longest_streak']) if 'longest_streak' in row else 0
+            row['streak'] = int(row.get('streak', 0) or 0)
+            row['longest_streak'] = int(row.get('longest_streak', 0) or 0)
             habits_list.append(row)
         return habits_list
-
 
 def save_habits(filepath, habits):
     """
@@ -71,7 +109,6 @@ def save_habits(filepath, habits):
         writer.writeheader()
         writer.writerows(habits)
 
-
 def add_habit(habits, name):
     """
     Adds a new habit to the list, avoiding duplicates.
@@ -80,8 +117,9 @@ def add_habit(habits, name):
     for habit in habits:
         if habit["habit_name"].lower() == name.lower():
             print(f"Habit '{name}' already exists.")
-            return habits # Return original list if duplicate
+            return habits
     habits.append({"habit_name": name, "streak": 0, "longest_streak": 0, "last_completed_date": "never"})
+    print(f"Added habit: '{name}'")
     return habits
 
 def delete_habit(habits, name):
@@ -119,7 +157,7 @@ def complete_habit(habits, name):
 
             if last_completed == str(today):
                 print(f"'{name}' already completed today.")
-                break
+                return habits
 
             current_streak = int(habit["streak"])
             if last_completed == str(yesterday):
@@ -127,12 +165,10 @@ def complete_habit(habits, name):
             else:
                 habit["streak"] = 1
             
-            # Update the longest streak if the current streak is greater
             if habit["streak"] > habit["longest_streak"]:
                 habit["longest_streak"] = habit["streak"]
 
             print(f"Good work! Streak for '{name}' is now {habit['streak']}.")
-
             habit["last_completed_date"] = str(today)
             break
 
@@ -140,7 +176,6 @@ def complete_habit(habits, name):
         print(f"Habit '{name}' not found.")
 
     return habits
-
 
 def list_habits(habits):
     """
@@ -153,7 +188,6 @@ def list_habits(habits):
         for habit in habits:
             print(f"- {habit['habit_name']} | Streak: {habit['streak']} | Longest Streak: {habit['longest_streak']}")
     print("-------------------\n")
-
 
 if __name__ == "__main__":
     main()
