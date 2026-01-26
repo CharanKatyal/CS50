@@ -1,5 +1,5 @@
 # HabitCLI
-#### Video Demo:  <URL HERE>
+#### Video Demo:  https://youtu.be/vBzzoMmM1oQ
 
 #### Description:
 This is a command-line application for tracking daily habits. It's built with Python and is designed to be simple, fast, and easy to use directly from your terminal.
